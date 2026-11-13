@@ -1,0 +1,19 @@
+.env
+*.env.local
+service-account*.json
+*-firebase-adminsdk-*.json
+node_modules/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Design references (third-party screenshots), kept locally only
+card.png
+mandamas_pre_home.png
+text_editor.png
+text_editor_category.png
+
+# Go
+api/tmp/
+tests/

@@ -1,0 +1,10 @@
+rules_version = '2';
+// Clients never touch Firestore directly: the app signs in with Firebase Auth and talks to the Go API,
+// which uses the Admin SDK (that bypasses these rules). So every client read and write is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

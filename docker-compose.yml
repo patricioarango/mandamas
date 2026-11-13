@@ -16,7 +16,6 @@ services:
       PORT: "9090"
       APP_DIR: /srv/app
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/service-account.json
-      GOFLAGS: -buildvcs=false
     volumes:
       - ./app:/srv/app:ro
       - ./api:/src                     # dev: source for air (unused by the prod image)

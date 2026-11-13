@@ -2,7 +2,8 @@
 # Prod: static binary on distroless, non-root.
 FROM golang:1.26.10-alpine AS base
 WORKDIR /src
-ENV CGO_ENABLED=0
+# nomsgpack: drops Gin's MessagePack codec (ugorji), unused here and very memory-hungry to compile.
+ENV CGO_ENABLED=0 GOFLAGS="-buildvcs=false -tags=nomsgpack"
 
 FROM base AS dev
 RUN go install github.com/air-verse/air@v1.67.2

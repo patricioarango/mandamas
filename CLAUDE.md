@@ -4,7 +4,7 @@
 
 A Go server (Gin) that lets me write tasks (bugs, features, etc.) in one place and have Claude work on them autonomously across several GitHub repos, in the cloud, while my PC is off.
 
-It does four jobs in one process (one container, port 8090):
+It does four jobs in one process (one container, port 9090):
 
 0. **App API + static app**: serves the PWA from `app/` and the JSON API at `/api` that the app uses for everything except Google sign-in. Built.
 1. **MCP server** (not built yet): exposes tools so Claude (in chat or inside a routine) can create, list, and update tasks.
@@ -92,7 +92,7 @@ Server-level settings live in `.env` (read by docker compose). Never commit it; 
 ```bash
 FIREBASE_PROJECT_ID=your-project-id
 SERVICE_ACCOUNT_PATH=/path/outside/repo/service-account.json   # mounted read-only at /run/secrets/service-account.json
-API_PORT=8090                          # the only published port (app + /api); the front server routes the domain here
+API_PORT=9090                          # the only published port (app + /api); the front server routes the domain here
 API_TARGET=dev                         # dev = air live reload, prod = static binary on distroless
 TRUSTED_PROXIES=                       # front proxy IPs/CIDRs for correct client IPs in logs
 MCP_API_KEY=change-me                  # auth for the MCP endpoint (later)
@@ -209,7 +209,7 @@ Static PWA: plain HTML + ES modules, no build step, served by the Go container. 
 Go isn't needed on the host; everything runs in Docker.
 
 ```bash
-docker compose up -d                       # dev: http://localhost:8090, air rebuilds on .go changes
+docker compose up -d                       # dev: http://localhost:9090, air rebuilds on .go changes
 API_TARGET=prod docker compose up -d --build
 docker compose run --rm api go vet ./...
 docker compose run --rm api go test ./...

@@ -1,4 +1,4 @@
-# One container: the Go API (Gin) on :8090, which also serves the static app from ./app.
+# One container: the Go API (Gin) on :9090, which also serves the static app from ./app.
 #   dev  (default): air rebuilds on .go changes; app files are read live from ./app
 #   prod: API_TARGET=prod docker compose up -d --build
 services:

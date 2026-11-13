@@ -27,7 +27,7 @@ type Config struct {
 func Load() (Config, error) {
 	c := Config{
 		ProjectID:      os.Getenv("FIREBASE_PROJECT_ID"),
-		Port:           envOr("PORT", "8090"),
+		Port:           envOr("PORT", "9090"),
 		AppDir:         envOr("APP_DIR", "/srv/app"),
 		AllowlistParam: envOr("ALLOWLIST_PARAM", "allowed_emails"),
 		AllowlistTTL:   5 * time.Minute,

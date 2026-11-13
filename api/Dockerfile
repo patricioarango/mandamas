@@ -6,7 +6,7 @@ ENV CGO_ENABLED=0
 
 FROM base AS dev
 RUN go install github.com/air-verse/air@v1.67.2
-EXPOSE 8090
+EXPOSE 9090
 CMD ["air", "-c", ".air.toml"]
 
 FROM base AS build
@@ -17,6 +17,6 @@ RUN go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
 
 FROM gcr.io/distroless/static-debian12:nonroot AS prod
 COPY --from=build /out/server /server
-EXPOSE 8090
+EXPOSE 9090
 USER nonroot
 ENTRYPOINT ["/server"]

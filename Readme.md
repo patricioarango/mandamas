@@ -33,13 +33,23 @@ Setup has two parts: **the server once**, then **each repo** you want Claude to 
 
 ### 2. Service account
 
-Project settings → Service accounts → **Generate new private key**. Store the JSON **outside the repo** and lock it down:
+Project settings → Service accounts → **Generate new private key**. Store the JSON **outside the repo and outside any web root**, e.g. `/etc/mandamas/service-account.json`, and give the container (and nobody else) read access:
 
 ```bash
-chmod 600 /path/outside/repo/service-account.json
+sudo chgrp 65532 /etc/mandamas/service-account.json
 ```
 
-It needs Firestore access and Remote Config read (the default Firebase Admin SDK account has both).
+```bash
+sudo chmod 640 /etc/mandamas/service-account.json
+```
+
+`ls -ln` should show `-rw-r----- 1 <your uid or 0> 65532`.
+
+Why 640 and not 600: the prod container (`API_TARGET=prod`, distroless) runs as uid/gid **65532**, not as you, so it reads the file through its group. 65532 is fixed in the image, so it's the same number on every server, and the group doesn't need to exist on the host. With `600` the server stops with `cannot read credentials file: … permission denied`. (Dev mode runs as root and reads it either way.)
+
+Two exceptions: with rootless Docker or user-namespace remapping the ids are shifted, and with SELinux enforcing (`getenforce` prints `Enforcing`) add `,z` to the volume (`:ro,z`) in `docker-compose.yml`.
+
+The account needs Firestore access and Remote Config read (the default Firebase Admin SDK account has both).
 
 ### 3. `.env`
 
@@ -47,7 +57,7 @@ Create `.env` next to `docker-compose.yml` (never commit it):
 
 ```bash
 FIREBASE_PROJECT_ID=your-project-id
-SERVICE_ACCOUNT_PATH=/path/outside/repo/service-account.json
+SERVICE_ACCOUNT_PATH=/etc/mandamas/service-account.json
 API_PORT=9090            # the only port (app, /api and /mcp); same inside the container and on the host
 API_TARGET=prod          # dev = live reload, prod = small static binary
 TRUSTED_PROXIES=         # IP/CIDR of your front proxy, for correct client IPs in logs
@@ -58,6 +68,8 @@ DISPATCHER=on            # off = this instance never fires routines
 ```bash
 chmod 600 .env
 ```
+
+`.env` can stay `600`: Docker Compose reads it on the host, the container never opens it.
 
 ### 4. Run it
 
@@ -79,14 +91,22 @@ Check: `https://<your-domain>/healthz` returns `{"ok":true}`, and signing in to 
 Routines report back to Mandamás through its MCP server. Add it once as a custom connector in claude.ai:
 
 1. claude.ai → **Settings → Connectors → Add custom connector**.
-2. Name: `Mandamás`. URL:
+2. Name: `Mandamás`. URL (no key in it):
    ```
-   https://<your-domain>/mcp/<MCP_API_KEY>
+   https://<your-domain>/mcp
    ```
-   The key goes in the URL because claude.ai connectors only take a URL. **Treat this URL as a password.** Clients that can send headers can use `https://<your-domain>/mcp` with `Authorization: Bearer <MCP_API_KEY>` instead.
-3. Save. Claude should list 5 tools: `list_projects`, `create_task`, `get_task_status`, `update_task`, `request_input`.
+3. Authentication: **No sign-in**. The key goes in a header instead of OAuth.
+4. **Request headers** → add one:
+   - Header name: `Authorization`
+   - Value: `Bearer <MCP_API_KEY>` (the word `Bearer`, a space, then the key)
+   - Keep **Required** checked.
 
-To rotate the key: change `MCP_API_KEY` in `.env`, `docker compose up -d`, and update the connector URL.
+   The value is stored encrypted and never shown again. Requests without it get 401, so the "anyone with the URL" warning doesn't apply.
+5. Save. Claude should list 5 tools: `list_projects`, `create_task`, `get_task_status`, `update_task`, `request_input`.
+
+To rotate the key: change `MCP_API_KEY` in `.env`, `docker compose up -d`, and edit the connector's `Authorization` header value.
+
+> Fallback for clients that can't send headers: put the key in the path, `https://<your-domain>/mcp/<MCP_API_KEY>`. Treat that URL as a password.
 
 ---
 
@@ -199,7 +219,9 @@ To test questions: write a task that's deliberately ambiguous. The task should g
 | Task stays `queued` | Rate limit (25 fires/hour per routine, 90 per account kept as margin); it fires when there's room. Or the server is down: check `docker logs`. |
 | Task stays `dispatched` forever | Claude finished without calling `update_task` (check the session link), or the Mandamás connector isn't enabled on the routine. |
 | Claude can't push `task/<id>` | Allow unrestricted branch pushes for the repo in the routine (Part 2, step 3.3). |
-| Claude says it has no Mandamás tools | Connector not enabled on the routine, wrong key in its URL, or `/mcp` disabled (`MCP_API_KEY` empty or under 32 chars). |
+| Claude says it has no Mandamás tools | Connector not enabled on the routine, or `/mcp` disabled (`MCP_API_KEY` empty or under 32 chars; the logs say `MCP endpoint disabled`). |
+| Connector says unauthorized (401) | The `Authorization` header value is missing the `Bearer ` prefix, or the key doesn't match `MCP_API_KEY` on the server. |
+| Server stops with `cannot read credentials file: … permission denied` | Prod container (uid/gid 65532) can't read the service account. Find the host path with `docker compose config \| grep -B1 'target: /run/secrets'`, then `sudo chgrp 65532 <path>` and `sudo chmod 640 <path>` (Part 1, step 2). |
 | Stuck in `dispatching` | The server restarted mid-fire. It re-queues after 10 minutes automatically. |
 | No push notifications | The app doesn't register devices yet (`devices` collection is empty); pushes are logged as "no devices registered". |
 

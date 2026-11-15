@@ -130,7 +130,7 @@ DISPATCHER=on                          # off = this instance never fires routine
 | `update_task` | Routines report back (`pr_open`, `prUrl`, `done`, `failed`) | Must **not** allow changing `project` or `category` |
 | `request_input` | Routine asks the user a question when blocked | Appends to `questions`, sets `needs_input`, sends FCM push, tells Claude to push its branch and end the session |
 
-The MCP server requires auth (`MCP_API_KEY`). Routines and any other client must send it, either as `Authorization: Bearer <key>` to `/mcp` or, for connectors that only take a URL, in the path: `https://<domain>/mcp/<key>` (treat that URL as a secret). Streamable HTTP, stateless, JSON responses; 5 req/s burst 60. Tool errors come back as `isError` results the model can read.
+The MCP server requires auth (`MCP_API_KEY`). Routines and any other client must send it, as `Authorization: Bearer <key>` to `/mcp` (the claude.ai connector: "No sign-in" + a Request header). Fallback for clients that can't send headers: the key in the path, `https://<domain>/mcp/<key>` (treat that URL as a secret). Streamable HTTP, stateless, JSON responses; 5 req/s burst 60. Tool errors come back as `isError` results the model can read.
 
 ## Clarifications and notifications
 
@@ -153,7 +153,7 @@ The MCP server requires auth (`MCP_API_KEY`). Routines and any other client must
 
 ## Security checklist
 
-- `.env` and the service account JSON are in `.gitignore`, `chmod 600`, and outside any Docker image (`env_file` + read-only mount at runtime).
+- `.env` and the service account JSON are in `.gitignore` and outside any Docker image (read-only mount at runtime). `.env` is `chmod 600`; the service account is `chgrp 65532` + `chmod 640`, because the prod container (distroless nonroot) runs as uid/gid 65532 and `600` makes it fail with "permission denied".
 - Never log tokens, the service account, or full request headers.
 - Routine tokens (`sk-ant-oat01-…`) can each start work on one repo. Treat them as top-level secrets. They live in `projectSecrets`, which no client can read; the app never displays a token after saving. Regenerating one in claude.ai/code/routines revokes the old one; do that when archiving a project.
 - Every target repo has branch protection on its default branch (`main` or `master`), so Claude only opens PRs and a human reviews and merges.

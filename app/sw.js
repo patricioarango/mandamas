@@ -1,5 +1,5 @@
 // App-shell cache. Bump VERSION on every deploy that changes these files.
-const VERSION = "mandamas-v3";
+const VERSION = "mandamas-v4";
 const SHELL = [
   "./", "index.html", "manifest.webmanifest", "css/styles.css",
   "js/main.js", "js/ui.js", "js/firebase.js", "js/firebase-config.js",

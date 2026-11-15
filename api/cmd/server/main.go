@@ -16,7 +16,12 @@ import (
 
 	"github.com/mandamas/api/internal/allowlist"
 	"github.com/mandamas/api/internal/config"
+	"github.com/mandamas/api/internal/dispatcher"
 	"github.com/mandamas/api/internal/httpapi"
+	"github.com/mandamas/api/internal/mcp"
+	"github.com/mandamas/api/internal/notifications"
+	"github.com/mandamas/api/internal/registry"
+	"github.com/mandamas/api/internal/routines"
 	"github.com/mandamas/api/internal/store"
 )
 
@@ -70,9 +75,45 @@ func run() error {
 		list = cached
 	}
 
+	st := store.NewFirestore(fs)
+
+	// Pushes. Without credentials (emulator mode) FCM can't send, so pushes are skipped.
+	var notifier *notifications.Notifier
+	if cfg.CredentialsFile != "" {
+		msg, err := app.Messaging(ctx)
+		if err != nil {
+			return err
+		}
+		notifier = notifications.New(msg, st)
+	} else {
+		slog.Warn("no credentials: push notifications disabled")
+	}
+
+	// Live project config (projects + routine secrets), shared by the dispatcher and the MCP tools.
+	reg := registry.New()
+	go reg.Run(ctx, st)
+
+	if cfg.Dispatcher {
+		d := dispatcher.New(dispatcher.Options{
+			Store: st, Firer: routines.New(), Config: reg, Notifier: notifier,
+			// Below the published 30/h per routine and 100/h per account, which "Run now" also uses.
+			Limiter: routines.NewLimiter(25, 90),
+		})
+		go d.Run(ctx)
+	} else {
+		slog.Warn("dispatcher disabled (DISPATCHER=off)")
+	}
+
+	var mcpHandler http.Handler
+	if cfg.MCPAPIKey != "" {
+		mcpHandler = mcp.Handler(mcp.Options{Store: st, Projects: reg, Notifier: notifier, APIKey: cfg.MCPAPIKey, Version: "1.0.0"})
+	} else {
+		slog.Warn("MCP endpoint disabled", "reason", cfg.MCPDisabledReason)
+	}
+
 	router := httpapi.NewRouter(httpapi.Options{
-		Verifier: authClient, Allowlist: list, Store: store.NewFirestore(fs),
-		AppDir: cfg.AppDir, TrustedProxies: cfg.TrustedProxies,
+		Verifier: authClient, Allowlist: list, Store: st,
+		AppDir: cfg.AppDir, TrustedProxies: cfg.TrustedProxies, MCP: mcpHandler,
 	})
 	srv := &http.Server{
 		Addr: ":" + cfg.Port, Handler: router,

@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const MinMCPKey = 32
+
 type Config struct {
 	ProjectID       string
 	Port            string
@@ -17,6 +19,13 @@ type Config struct {
 	TrustedProxies  []string
 	AllowlistParam  string
 	AllowlistTTL    time.Duration
+
+	// MCP endpoint auth. Empty or too short disables /mcp (see MCPDisabledReason).
+	MCPAPIKey         string
+	MCPDisabledReason string
+
+	// Dispatcher: off with DISPATCHER=off (e.g. a second instance that only serves the app).
+	Dispatcher bool
 
 	// Emulator mode (local dev/tests only). Auth emulator tokens are unsigned, so this can't be used against production.
 	AuthEmulator    bool
@@ -32,6 +41,14 @@ func Load() (Config, error) {
 		AllowlistParam: envOr("ALLOWLIST_PARAM", "allowed_emails"),
 		AllowlistTTL:   5 * time.Minute,
 		AuthEmulator:   os.Getenv("FIREBASE_AUTH_EMULATOR_HOST") != "",
+		MCPAPIKey:      strings.TrimSpace(os.Getenv("MCP_API_KEY")),
+		Dispatcher:     os.Getenv("DISPATCHER") != "off",
+	}
+	switch {
+	case c.MCPAPIKey == "":
+		c.MCPDisabledReason = "MCP_API_KEY is not set"
+	case len(c.MCPAPIKey) < MinMCPKey || c.MCPAPIKey == "change-me":
+		c.MCPAPIKey, c.MCPDisabledReason = "", fmt.Sprintf("MCP_API_KEY is too short (min %d chars; try: openssl rand -hex 32)", MinMCPKey)
 	}
 	if v := os.Getenv("TRUSTED_PROXIES"); v != "" {
 		c.TrustedProxies = splitList(v)

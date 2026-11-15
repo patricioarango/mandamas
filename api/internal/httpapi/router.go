@@ -2,6 +2,8 @@
 package httpapi
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/mandamas/api/internal/allowlist"
@@ -15,6 +17,7 @@ type Options struct {
 	Store          store.Store
 	AppDir         string // static app folder; empty disables static serving
 	TrustedProxies []string
+	MCP            http.Handler // serves /mcp and /mcp/<key>; nil disables it
 	MaxBody        int64   // bytes; default 512 KB
 	RatePerSecond  float64 // per user; default 1
 	RateBurst      int     // default 30
@@ -44,6 +47,12 @@ func NewRouter(o Options) *gin.Engine {
 	api.GET("/projects/:key/tasks", validKey(), h.listTasks)
 	api.POST("/tasks", h.createTask)
 	api.POST("/tasks/:id/answer", h.answerTask)
+
+	if o.MCP != nil {
+		mcp := gin.WrapH(o.MCP)
+		r.Any("/mcp", mcp)
+		r.Any("/mcp/:key", mcp)
+	}
 
 	if o.AppDir != "" {
 		r.NoRoute(staticApp(o.AppDir))

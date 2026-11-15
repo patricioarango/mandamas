@@ -1,4 +1,4 @@
-import { icons, toast } from "../ui.js";
+import { icons } from "../ui.js";
 
 export async function render(root, { api }) {
   root.innerHTML = `
@@ -7,11 +7,16 @@ export async function render(root, { api }) {
       <h1>Mandamás</h1>
       <p>Write the task. Claude opens the PR.</p>
       <button class="google-btn" id="signin">${icons.google}<span>Continue with Google</span></button>
+      <p class="auth-error" id="signin-error" role="alert" hidden></p>
       <div class="fine">Only invited accounts can get in.</div>
     </div>`;
-  root.querySelector("#signin").addEventListener("click", async (e) => {
-    e.currentTarget.disabled = true;
-    try { await api.signIn(); } catch (err) { console.error(err); toast("Sign-in failed. Try again."); }
-    finally { e.currentTarget.disabled = false; }
+  const btn = root.querySelector("#signin");
+  const err = root.querySelector("#signin-error");
+  const fail = (e) => { console.error(e); err.textContent = e.message || "Sign-in failed. Try again."; err.hidden = false; };
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    err.hidden = true;
+    try { await api.signIn(); } catch (e) { fail(e); } finally { btn.disabled = false; }
   });
+  api.redirectError?.then((e) => e && fail(e));
 }

@@ -60,6 +60,10 @@ type Task struct {
 	Description string     `firestore:"description" json:"description"`
 	Status      string     `firestore:"status" json:"status"`
 	Questions   []Question `firestore:"questions,omitempty" json:"questions,omitempty"`
+	Branch      string     `firestore:"branch,omitempty" json:"branch,omitempty"`
+	ResumeCount int        `firestore:"resumeCount,omitempty" json:"resumeCount,omitempty"`
+	RemindedAt  *time.Time `firestore:"remindedAt,omitempty" json:"remindedAt,omitempty"`
+	RetryAfter  *time.Time `firestore:"retryAfter,omitempty" json:"retryAfter,omitempty"`
 	SessionURL  string     `firestore:"sessionUrl,omitempty" json:"sessionUrl,omitempty"`
 	PRURL       string     `firestore:"prUrl,omitempty" json:"prUrl,omitempty"`
 	Error       string     `firestore:"error,omitempty" json:"error,omitempty"`
@@ -68,6 +72,49 @@ type Task struct {
 	UpdatedAt   time.Time  `firestore:"updatedAt" json:"updatedAt"`
 }
 
+// Task statuses.
+const (
+	StatusQueued      = "queued"
+	StatusDispatching = "dispatching"
+	StatusDispatched  = "dispatched"
+	StatusNeedsInput  = "needs_input"
+	StatusPROpen      = "pr_open"
+	StatusDone        = "done"
+	StatusFailed      = "failed"
+)
+
+// LastQuestion returns the most recent question, or nil.
+func (t Task) LastQuestion() *Question {
+	if len(t.Questions) == 0 {
+		return nil
+	}
+	return &t.Questions[len(t.Questions)-1]
+}
+
+// HasAnswers reports whether any question was answered (the next dispatch is a resume).
+func (t Task) HasAnswers() bool {
+	for _, q := range t.Questions {
+		if q.Answer != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// RoutineReport is what a routine may change on its task via update_task. Never project or category.
+type RoutineReport struct {
+	Status string // pr_open, done or failed
+	PRURL  string // optional; required for pr_open unless already set
+	Error  string // short reason when failed
+}
+
+// Device is an FCM registration token saved by the app.
+type Device struct {
+	ID    string `firestore:"-"`
+	Token string `firestore:"token"`
+}
+
+// Store is what the app API needs.
 type Store interface {
 	ListProjects(ctx context.Context) ([]Project, error) // non-archived, with counts
 	GetProject(ctx context.Context, key string) (Project, error)

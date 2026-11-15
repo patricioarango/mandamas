@@ -1,3 +1,4 @@
 Create a Firebase Project
 Create a Service Account and edit app/js/firebase-config.js with project data.
-In console.firebase.google.com config Google Auth method.
+In console.firebase.google.com config Google Auth method. Add allowed domains.
+In remote config add allowed_emails json array with the emails you want to login.

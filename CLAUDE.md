@@ -7,8 +7,8 @@ A Go server (Gin) that lets me write tasks (bugs, features, etc.) in one place a
 It does four jobs in one process (one container, port 9090):
 
 0. **App API + static app**: serves the PWA from `app/` and the JSON API at `/api` that the app uses for everything except Google sign-in. Built.
-1. **MCP server** (not built yet): exposes tools so Claude (in chat or inside a routine) can create, list, and update tasks.
-2. **Dispatcher** (not built yet): listens to Firestore for queued tasks and fires the matching Claude Code routine for that task's project.
+1. **MCP server** (`/mcp`, built): exposes tools so Claude (in chat or inside a routine) can create, list, and update tasks.
+2. **Dispatcher** (built): listens to Firestore for queued tasks and fires the matching Claude Code routine for that task's project.
 3. **Routine caller**: the only reader of each project's routine URL + token (`projectSecrets`). The app writes them when creating a project but can never read them back.
 
 ## Architecture
@@ -95,7 +95,8 @@ SERVICE_ACCOUNT_PATH=/path/outside/repo/service-account.json   # mounted read-on
 API_PORT=9090                          # the only published port (app + /api); the front server routes the domain here
 API_TARGET=dev                         # dev = air live reload, prod = static binary on distroless
 TRUSTED_PROXIES=                       # front proxy IPs/CIDRs for correct client IPs in logs
-MCP_API_KEY=change-me                  # auth for the MCP endpoint (later)
+MCP_API_KEY=                           # auth for /mcp; ≥ 32 chars (openssl rand -hex 32); empty/short disables /mcp
+DISPATCHER=on                          # off = this instance never fires routines
 ```
 
 `internal/config` validates on startup and names the missing variable (never a value). Emulator mode (`FIREBASE_AUTH_EMULATOR_HOST` set) skips credentials and takes the allowlist from `DEV_ALLOWED_EMAILS`; it can't work in production because emulator tokens are unsigned. Changes to `.env` require a restart. The service account needs Firestore access and Remote Config read (`firebase.remoteconfig` scope); add the domain to Firebase Auth → Authorized domains.
@@ -129,7 +130,7 @@ MCP_API_KEY=change-me                  # auth for the MCP endpoint (later)
 | `update_task` | Routines report back (`pr_open`, `prUrl`, `done`, `failed`) | Must **not** allow changing `project` or `category` |
 | `request_input` | Routine asks the user a question when blocked | Appends to `questions`, sets `needs_input`, sends FCM push, tells Claude to push its branch and end the session |
 
-The MCP server requires auth (`MCP_API_KEY`). Routines and any other client must send it.
+The MCP server requires auth (`MCP_API_KEY`). Routines and any other client must send it, either as `Authorization: Bearer <key>` to `/mcp` or, for connectors that only take a URL, in the path: `https://<domain>/mcp/<key>` (treat that URL as a secret). Streamable HTTP, stateless, JSON responses; 5 req/s burst 60. Tool errors come back as `isError` results the model can read.
 
 ## Clarifications and notifications
 
@@ -193,7 +194,7 @@ Go 1.26, Gin, Firebase Admin SDK for Go. Every `/api/*` request goes through, in
 
 Secrets are never returned. Everything that isn't `/api` or `/healthz` is served from `APP_DIR` (`./app` mounted read-only): unknown paths fall back to `index.html`, `index.html`/`sw.js`/manifest are `no-cache`. The front server should gzip.
 
-Packages: `cmd/server` (wiring, graceful shutdown), `internal/config`, `internal/allowlist`, `internal/auth`, `internal/validate`, `internal/store` (the only Firestore code, behind an interface), `internal/httpapi` (router, middleware, handlers, static). Later: `internal/mcp`, `internal/dispatcher`, `internal/routines`, `internal/notifications`.
+Packages: `cmd/server` (wiring, graceful shutdown), `internal/config`, `internal/allowlist`, `internal/auth`, `internal/validate`, `internal/store` (the only Firestore code, behind an interface), `internal/httpapi` (router, middleware, handlers, static). `internal/registry` (live in-memory projects + secrets from listeners), `internal/routines` (the only fire API code + sliding-hour limiter, set to 25/routine and 90/account), `internal/dispatcher` (queue, claim, fire, sweepers every 3 min, prompt text), `internal/notifications` (FCM), `internal/mcp` (tools + auth).
 
 ## Client app (`app/`)
 

@@ -60,6 +60,7 @@ export function onAuth(cb) {
   setTimeout(() => cb(user), 250);
   return () => listeners.delete(cb);
 }
+export const redirectError = Promise.resolve(null);
 export async function signIn() { user = allowedUser; emit(); }
 export async function signOut() { user = null; emit(); }
 export async function isAllowed(u) { return delay(u?.email === allowedUser.email); }

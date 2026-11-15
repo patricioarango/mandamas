@@ -122,6 +122,7 @@ img { display: block; }
 .google-btn:active { transform: scale(.97); }
 .google-btn svg { width: 22px; height: 22px; }
 .auth .fine { margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+.auth-error { margin: 14px 0 0; max-width: 340px; font-size: 14px; color: #c92a2a; }
 .blocked .logo { filter: grayscale(1) opacity(.55); animation: none; }
 .blocked .email { font-weight: 700; color: var(--ink); }
 .text-btn { font-weight: 700; color: var(--brand-ink); padding: 10px 14px; border-radius: 12px; }

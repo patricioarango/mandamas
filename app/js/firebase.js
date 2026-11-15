@@ -2,7 +2,7 @@
 // Same exports as mock.js.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect,
+  getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult,
   signOut as fbSignOut, connectAuthEmulator,
 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { firebaseConfig, useAuthEmulator } from "./firebase-config.js";
@@ -20,6 +20,20 @@ if (useAuthEmulator) connectAuthEmulator(auth, "http://localhost:9099", { disabl
 // ---------- auth ----------
 export const onAuth = (cb) => onAuthStateChanged(auth, cb);
 
+// Firebase error codes → something the user can act on.
+const authMessages = {
+  "auth/unauthorized-domain": `${location.hostname} isn't an authorized domain. Add it in Firebase console → Authentication → Settings → Authorized domains.`,
+  "auth/operation-not-allowed": "Google sign-in is disabled. Enable it in Firebase console → Authentication → Sign-in method.",
+  "auth/invalid-api-key": "The Firebase API key in firebase-config.js is wrong.",
+  "auth/api-key-not-valid.-please-pass-a-valid-api-key.": "The Firebase API key in firebase-config.js is wrong (or restricted for this domain).",
+  "auth/network-request-failed": "Network error while talking to Google. Check the connection and try again.",
+  "auth/internal-error": "Google sign-in failed inside Firebase (often an API-key restriction that blocks this domain).",
+};
+const authError = (e) => new Error(authMessages[e.code] || `Sign-in failed (${e.code || e.message}).`);
+
+/** Error from a redirect sign-in that came back to the app, or null. */
+export const redirectError = getRedirectResult(auth).then(() => null, authError);
+
 export async function signIn() {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
@@ -30,7 +44,7 @@ export async function signIn() {
     await signInWithPopup(auth, provider);
   } catch (e) {
     if (e.code === "auth/popup-blocked") return signInWithRedirect(auth, provider);
-    if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") throw e;
+    if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") throw authError(e);
   }
 }
 

@@ -1,4 +1,4 @@
-# One container: the Go API (Gin) on :9090, which also serves the static app from ./app.
+# One container: the Go API (Gin) on ${API_PORT} (default 9090), which also serves the static app from ./app.
 #   dev  (default): air rebuilds on .go changes; app files are read live from ./app
 #   prod: API_TARGET=prod docker compose up -d --build
 services:
@@ -8,14 +8,14 @@ services:
       target: ${API_TARGET:-dev}
     restart: unless-stopped
     ports:
-      - "${API_PORT:-9090}:9090"
+      - "${API_PORT:-9090}:${API_PORT:-9090}"   # same port inside and out: change it only in .env
     # Values come from .env (compose reads it for ${…} automatically). Only what the API needs is passed in.
     environment:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       MCP_API_KEY: ${MCP_API_KEY:-}        # /mcp is disabled when empty or shorter than 32 chars
       DISPATCHER: ${DISPATCHER:-on}        # off = don't fire routines from this instance
-      PORT: "9090"
+      PORT: ${API_PORT:-9090}
       APP_DIR: /srv/app
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/service-account.json
     volumes:

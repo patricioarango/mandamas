@@ -94,30 +94,36 @@ To rotate the key: change `MCP_API_KEY` in `.env`, `docker compose up -d`, and u
 
 Do these steps for every GitHub repo you add. Test one small task end to end before adding the next repo.
 
-### 1. Protect `main` on GitHub
+### 1. Protect the default branch on GitHub
 
-Repo → Settings → Branches (or Rules → Rulesets) → add a rule for `main` (or your default branch):
+Each repo has a default branch, usually `main` or `master` (check Repo → Settings → General → Default branch). Claude's PRs target that branch, so it's the one to protect, whatever its name. If a repo uses both, protect both.
+
+Repo → Settings → Branches (or Rules → Rulesets) → add a rule for your default branch (`main` or `master`):
 
 - Require a pull request before merging (at least 1 approval).
 - Block force pushes and deletions.
 
-Claude only opens PRs; you review and merge.
+Without this rule, Claude could push straight to `master`/`main`. With it, Claude only opens PRs; you review and merge.
 
 ### 2. Add a `CLAUDE.md` to the repo
 
-Claude reads it at the start of every session. Commit it to the default branch. Keep it practical:
+Claude reads it at the start of every session and runs the commands in it, in its cloud session, to install, build and test before opening a PR. **You don't run anything locally.** Commit it to the default branch.
+
+The template below uses npm **only as an example**. Replace every command with what that repo really uses (`pip install -r requirements.txt` and `pytest`, `go test ./...`, `composer install`, `bundle exec rspec`…), and delete the lines that don't apply. A repo with no build or tests just skips those sections.
 
 ```markdown
 # CLAUDE.md
 
 ## Setup
-- Install: `npm ci`  (or `pip install -r requirements.txt`, `go mod download`…)
+<!-- Example commands (npm). Replace with this repo's own. -->
+- Install: `npm ci`
 - Env for tests: copy `.env.example` to `.env.test`; no real secrets needed.
 
 ## Commands
 - Build: `npm run build`
 - Tests: `npm test` (all must pass before opening a PR)
 - Lint/format: `npm run lint && npm run format`
+- PRs target the default branch: `master`  <!-- or main -->
 
 ## Conventions
 - Language/framework versions, folder layout, naming, error handling.
@@ -134,7 +140,7 @@ Go to [claude.ai/code/routines](https://claude.ai/code/routines) → **New routi
 
 1. **Name**: the repo name, e.g. `billing-api`.
 2. **Repository**: select this repo only (one routine per repo).
-3. **Branch pushes**: Claude must be able to push branches named `task/<id>`. If the routine or repo settings restrict pushes to `claude/`-prefixed branches, turn on unrestricted branch pushes for this repo. Branch protection on `main` (step 1) still blocks direct pushes there.
+3. **Branch pushes**: Claude must be able to push branches named `task/<id>`. If the routine or repo settings restrict pushes to `claude/`-prefixed branches, turn on unrestricted branch pushes for this repo. Branch protection on the default branch (step 1) still blocks direct pushes to `main`/`master`.
 4. **Environment**: pick or create a cloud environment with the network access the repo's install and tests need (package registries, etc.). Add a setup script if dependencies need one.
 5. **Connectors**: enable **Mandamás** (from Part 1, step 5). Turn off connectors this repo doesn't need.
 6. **Prompt**: paste this, then add anything repo-specific at the end:
@@ -143,7 +149,7 @@ Go to [claude.ai/code/routines](https://claude.ai/code/routines) → **New routi
    >
    > Always work on branch `task/<id>`. If the task says **Resume**, check out the existing branch, read the answered questions, and continue from where it stopped; do not start over.
    >
-   > When done, open a PR from `task/<id>` that references the task ID in the title and body, then call the Mandamás tool `update_task` with status `pr_open` and the PR URL.
+   > Never commit or push to the default branch (`main` or `master`). When done, open a PR from `task/<id>` into the repo's default branch that references the task ID in the title and body, then call the Mandamás tool `update_task` with status `pr_open` and the PR URL.
    >
    > Only call `request_input` when you are truly blocked or a choice is costly to reverse. Ask one clear question, with options when possible. For small decisions, choose the reasonable option and note the assumption in the PR description. Before calling `request_input`, commit and push your progress to `task/<id>`. After calling it, end the session immediately; you will be started again with the answer.
    >

@@ -97,7 +97,7 @@ Routines report back to Mandamás through its MCP server. Add it once as a custo
    ```
 3. Authentication: **No sign-in**. The key goes in a header instead of OAuth.
 4. **Request headers** → add one:
-   - Header name: `Authorization`
+   - Header name: pick `Authorization` from the dropdown. Don't type `Bearer` there: claude.ai rejects unapproved names with "The header name “bearer” isn't approved".
    - Value: `Bearer <MCP_API_KEY>` (the word `Bearer`, a space, then the key)
    - Keep **Required** checked.
 
@@ -106,7 +106,9 @@ Routines report back to Mandamás through its MCP server. Add it once as a custo
 
 To rotate the key: change `MCP_API_KEY` in `.env`, `docker compose up -d`, and edit the connector's `Authorization` header value.
 
-> Fallback for clients that can't send headers: put the key in the path, `https://<your-domain>/mcp/<MCP_API_KEY>`. Treat that URL as a password.
+> Fallback for clients that can't send headers: put the key in the path, `https://<your-domain>/mcp/<MCP_API_KEY>`, and add no header. Treat that URL as a password.
+>
+> Use one or the other, never both: with the header, the URL is plain `/mcp`. A key in the URL ends up in logs and screenshots, so prefer the header.
 
 ---
 
